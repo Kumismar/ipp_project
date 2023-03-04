@@ -2,6 +2,18 @@
 
 ini_set('display_errors', 'stderr');
 
+/**
+ * Funkce processArguments, která je bez návratové hodnoty, kontroluje
+ * správnost zadání přepínačů/CLI parametrů skriptu. 
+ * 
+ * Dvě jediné správné možnosti jsou bez přepínačů, nebo s přepínačem --help.
+ * 
+ * Pokud nejsou přepínače žádné, funkce neudělá nic.
+ * Pokud je přepínač --help přítomen, vypíše nápovědu pro použití skriptu.
+ * 
+ * V každém jiném případě vrací návratovou hodnotu 10, která signalizuje 
+ * spuštění skriptu se špatně zadanými přepínači.
+ */
 function processArguments()
 {
     global $argc, $argv;
@@ -19,34 +31,48 @@ function processArguments()
     }
 }
 
-function myGetType($string)
+/**
+ * Funkce myGetType() vrací typ symbolu předaného této funkci.
+ * @param symb Vstupní symbol
+ */
+function myGetType($symb)
 {
-    $parsed = explode("@", $string);
+    if (preg_match("/^(bool|int|string)$/i", $symb))
+        return "type";
+
+    /* Rozdělení vstupního symbolu na "typ@něco", kde "typ" může být buď proměnná nebo druh konstanty. */
+    $parsed = explode("@", $symb);
     if (preg_match("/(GF|TF|LF)/i", $parsed[0]))
         return "var";
-
-    if (preg_match("/^(bool|int|string)$/i", $string))
-        return "type";
-    elseif (preg_match("/(string|int|bool|nil)@.*/i", $string))
+    elseif (preg_match("/(string|int|bool|nil)/i", $parsed[0]))
         return $parsed[0];
 
     return "label";
 }
 
-function getValue($arg)
+/**
+ * Funkce getValue() vrací hodnotu vstupního symbolu.
+ * @param symb Vstupní symbol
+ */
+function getValue($symb)
 {
-    $type = myGetType($arg);
+    $type = myGetType($symb);
+    /* Typ konstanty => vrací se část symbolu za "@". */
     if (preg_match("/(int|string|bool|nil)/i", $type))
     {
-        $arg = explode("@", $arg);
-        return $arg[1];
+        $symb = explode("@", $symb);
+        return $symb[1];
     }
+    /* U proměnné, návěští nebo typu se rovnou vrací jejich název. */
     elseif (preg_match("/(var|label|type)/i", $type))
-        return $arg;
+        return $symb;
     else
         exit(99);
 }
 
+/**
+ * Funkce checkHeader() kontroluje, zda se na začátku kódu vyskytuje správná hlavička.
+ */
 function checkHeader($in)
 {
     global $emptyLine;
@@ -54,6 +80,8 @@ function checkHeader($in)
     $headerLine = "/^\s*\.ippcode23\s*$comment$/i";
     while (!feof($in))
     {
+        /* Skipping empty lines and comment lines. Returns 1 when header is matched.
+            Anything else is wrong. */
         $line = fgets($in);
         if (preg_match($emptyLine, $line))
             continue;
@@ -67,6 +95,10 @@ function checkHeader($in)
     exit(21);
 }
 
+/**
+ * Funkce initXML udělá základní inicializaci XML souboru, tedy jej vytvoří
+ * a zapíše do něj povinný element program s atributem language=IPPcode23.
+ */
 function initXML()
 {
     global $xml;
@@ -77,22 +109,36 @@ function initXML()
     $xml->writeAttribute("language", "IPPcode23");
 }
 
+/**
+ * Funkce addToXML přidá aktuálně zpracovávanou instrukci se všemi jejími 
+ * povinnými atributy do výstupního XML souboru.
+ */
 function addToXML($line)
 {
     global $instructionNumber;
     global $xml;
     global $comment;
+
+    /* Odstranění komentáře z aktuálně čteného řádku. */
     $line = preg_replace("/$comment/i", "", $line);
+
+    /* Rozdělení řádku na instrukci a její případné operandy. 
+        Každá položka pole $output je buď opcode instrukce nebo její operand. */
     $output = preg_split("/\s+/", $line);
 
+    /* Přidání elementu instruction s příšlušnými atributy,
+        kde opcode je první položka pole $output. */
     $xml->startElement("instruction");
     $xml->writeAttribute("order", "$instructionNumber");
     $xml->writeAttribute("opcode", strtoupper($output[0]));
 
     for ($i = 1; isset($output[$i]); $i++)
     {
+        /* Funkce preg_split vrací jako poslední položku prázdný řetězec. */
         if ($output[$i] === "")
-            continue;
+            break;
+
+        /* Zapsání operandů instrukce jako elementy do výstupního XML. */    
         $xml->startElement("arg$i");
         $xml->writeAttribute("type", myGetType($output[$i]));
         $xml->text(getValue($output[$i]));
@@ -101,18 +147,26 @@ function addToXML($line)
     $xml->endElement();
 }
 
+/**
+ * Funkce printHelp() vypíše na standardní výstup nápovědu ke skriptu,
+ * byl-li při spouštění přítomen přepínač --help.
+ */
 function printHelp()
 {
     echo "Prepinac --help => za chvilku tady snad neco bude\n";
 }
 
+/**
+ * Funkce parse() provádí syntaktickou analýzu zdrojového kódu pomocí regulárních výrazů.
+ * @param in Vstupní soubor
+ */
 function parse($in)
 {
     global $emptyLine;
     global $instructionNumber;
     global $varLabelName;
     global $comment;
-    $instructions = "(move|createframe|pushframe|popframe|defvar|call|return|pushs|pops|add|sub|mul|idiv|lt|gt|eq|and|or|not|int2char|stri2int|read|write|concat|strlen|getchar|setchar|type|label|jumpifeq|jumpifneq|^jump$|exit|dprint|break)";
+    $instructions = "(move|createframe|pushframe|popframe|defvar|call|return|pushs|pops|add|sub|mul|idiv|lt|gt|eq|and|or|not|int2char|stri2int|read|write|concat|strlen|getchar|setchar|type|label|jumpifeq|jumpifneq|\bjump\b|exit|dprint|break)";
     $variable = "(GF|TF|LF)@$varLabelName";
     $stringLiteral = "string@([^\s#\\\\]|\\\\\d{3})*";
     $intConstant = "(?-i)int@[-+]?\d+(?i)";
@@ -122,6 +176,9 @@ function parse($in)
     $varType = "(?-i)(int|bool|string)";
     $commentLine = "/^\s*#.*$/";
 
+    /* Pro lepší případnou úpravu kódu jsou v poli $templates "šablony" instrukcí a každá šablona obsahuje
+        RV pro symboly, konstanty, komentáře, apod. Pokud by se někde vyskytla chyba v 
+        RV, pak stačí změnit RV v proměnných definovaných nad tímto komentářem. */
     $templates = array(
         "/^\s*(createframe|pushframe|popframe|return|break)\s*$comment\s*$/i",
         "/^\s*(?i)(add|sub|mul|idiv|gt|lt|eq)(?-i)\s+$variable\s+$symbol\s+$symbol\s*$comment\s*$/",
@@ -148,11 +205,13 @@ function parse($in)
 
     while ($line = fgets($in))
     {
+        /* Prázdné řádky a řádky obsahující pouze komentáře jsou přeskakovány. */
         if (preg_match($emptyLine, $line))
             continue;
         elseif (preg_match($commentLine, $line))
             continue;
 
+        /* Každý řádek prochází "šablonami" a pokud se nějaká trefí, pak se zapíše instrukce do výstupního XML. */
         foreach ($templates as $template)
         {
             if (preg_match($template, $line))
@@ -163,7 +222,9 @@ function parse($in)
             }
         }
 
-        if (preg_match("/^((?i).ippcode23(?-i)|[a-zA-Z][a-zA-Z0-9\s]*)$/", $line) && !preg_match("/^$instructions.*$/i", $line))
+        /* Pokud se na řádku opcode žádné instrukce nevyskytuje, případně se za ním
+            nachází další znaky (kromě bílých znaků), pak je chyba brána jako špatný opcode. */
+        if (!preg_match("/^$instructions.*$/i", $line))
             exit(22);
         elseif (preg_match("/^$instructions\S+$/i", $line))
             exit(22);
@@ -172,7 +233,7 @@ function parse($in)
 }
 
 $emptyLine = "/\A\s*\z/";
-$comment = "(?i)(#.*)?";
+$comment = "(#.*)?";
 $varLabelName = "[_\-\$&%\*!\?a-zA-Z][_\-\$&%\*!\?a-zA-Z0-9]*";
 $instructionNumber = 1;
 
