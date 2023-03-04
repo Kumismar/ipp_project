@@ -3,16 +3,8 @@
 ini_set('display_errors', 'stderr');
 
 /**
- * Funkce processArguments, která je bez návratové hodnoty, kontroluje
- * správnost zadání přepínačů/CLI parametrů skriptu. 
- * 
- * Dvě jediné správné možnosti jsou bez přepínačů, nebo s přepínačem --help.
- * 
- * Pokud nejsou přepínače žádné, funkce neudělá nic.
- * Pokud je přepínač --help přítomen, vypíše nápovědu pro použití skriptu.
- * 
- * V každém jiném případě vrací návratovou hodnotu 10, která signalizuje 
- * spuštění skriptu se špatně zadanými přepínači.
+ * Funkce processArguments kontroluje správnost zadání přepínačů/CLI parametrů skriptu. 
+ * Při nesprávné kombinaci přepínačů vrací exit code 10.
  */
 function processArguments()
 {
@@ -134,9 +126,9 @@ function addToXML($line)
 
     for ($i = 1; isset($output[$i]); $i++)
     {
-        /* Funkce preg_split vrací jako poslední položku prázdný řetězec. */
+        /* Po nahrazení komentáře prázdným řetězcem se tam občas objevuje. */
         if ($output[$i] === "")
-            break;
+            continue;
 
         /* Zapsání operandů instrukce jako elementy do výstupního XML. */    
         $xml->startElement("arg$i");
