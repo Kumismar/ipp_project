@@ -161,7 +161,7 @@ function parse($in)
     $instructions = "(move|createframe|pushframe|popframe|defvar|call|return|pushs|pops|add|sub|mul|idiv|lt|gt|eq|and|or|not|int2char|stri2int|read|write|concat|strlen|getchar|setchar|type|label|jumpifeq|jumpifneq|\bjump\b|exit|dprint|break)";
     $variable = "(GF|TF|LF)@$varLabelName";
     $stringLiteral = "string@([^\s#\\\\]|\\\\\d{3})*";
-    $intConstant = "(?-i)int@[-+]?\d+(?i)";
+    $intConstant = "(?-i)int(?i)@([-+]?\d+|0[xX][0-9a-fA-F]+|0[oO]?[0-7]+)";
     $boolConstant = "(?-i)bool@(true|false)(?i)";
     $nil = "(?-i)nil@nil(?i)";
     $symbol = "($variable|$intConstant|$boolConstant|$stringLiteral|$nil)";
