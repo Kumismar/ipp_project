@@ -145,7 +145,9 @@ function addToXML($line)
  */
 function printHelp()
 {
-    echo "Prepinac --help => za chvilku tady snad neco bude\n";
+    echo "Skript parse.php načítá ze standardního vstupu zdrojový kód v jazyce IPPCode23.
+Na standardni výstup poté vypíše XML reprezentaci zdrojového kódu. 
+Použití: php[8.1] parse.php ([< nazev souboru] | [--help])\n";
 }
 
 /**
